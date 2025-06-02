@@ -5,7 +5,7 @@ ComSmart is a mobile application built using React Native and Expo. The applicat
 
 ## Project Structure
 ```
-ComSmart
+ComSmart Upgrade Module 
 ├── App.js
 ├── app.json
 ├── assets
@@ -17,6 +17,22 @@ ComSmart
 │   ├── RegistrationScreen.js
 │   └── dashboard
 │       └── DashboardScreen.js
+|       └── UserAccountScreen.js
+|       └── assessment-module
+|           └── compatibility
+|               └── CompatibilityScreen.js
+|               └── CreateCompatibilityScreen.js
+|           └── final-assessment
+|               └── FinalAssessmentAssemblyScreen.js
+|               └── FinalAssessmentScreen.js
+|           └── part-picker
+|               └── PartPickerScreen.js
+|           └── quiz
+|               └── CreateQuizForm.js
+|               └── QuizScreen.js
+|           └── AssessmentResultsScreen.js
+|           └── AssessmentScreen.js
+|           └── HardwarePickerModal.js
 ├── services
 │   ├── apiRecords.js
 │   └── supabase.js

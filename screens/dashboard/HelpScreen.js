@@ -1,129 +1,71 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity } from 'react-native';
-import SidebarLayout from './SidebarLayout';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Image, Pressable, ScrollView, Dimensions } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { getRecords } from '../../services/apiRecords';
+import SidebarLayout from './SidebarLayout';
 
-
-const teamMembers = [
-  {
-    name: 'Arkady Achondo',
-    role: 'Student',
-    task: 'Assessment & PC Recommendation',
-    email: 'eijiarkady.achondo@unc.edu.ph',
-    image: require('../../assets/contact/arkady.png'),
-  },
-  {
-    name: 'John Jabez Cabañero',
-    role: 'Student',
-    task: 'Learning Management',
-    email: 'johnjabez.cabanero@unc.edu.ph',
-    image: require('../../assets/contact/jabez.png'),
-  },
-  {
-    name: 'Jose Emmanuel Dometita',
-    role: 'Student',
-    task: 'Assessment Management',
-    email: 'joseemmanuel.dometita@unc.edu.ph',
-    image: require('../../assets/contact/jose.png'),
-  },
-];
-
-export default function HelpScreen() {
-
-  const route = useRoute();
+export default function HelpScreen({ route }) {
   const navigation = useNavigation();
-  const user = route.params?.user;
+  const [active, setActive] = useState('Help');
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    async function fetchUser() {
+      const records = await getRecords();
+      setUser(records[0]);
+    }
+    fetchUser();
+  }, []);
 
   return (
-    <SidebarLayout activeTab="Help">
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Our Team</Text>
-        <Text style={styles.subtitle}>Meet Our Team</Text>
-        <View style={styles.teamContainer}>
-          {teamMembers.map((member, index) => (
-            <View key={index} style={styles.card}>
-              <Image source={member.image} style={styles.image} />
-              <Text style={styles.name}>{member.name}</Text>
-              <Text style={styles.role}>{member.role}</Text>
-              <Text style={styles.task}>{member.task}</Text>
-              <Text style={styles.email}>{member.email}</Text>
-            </View>
-          ))}
-        </View>
-        <TouchableOpacity style={styles.contactButton} onPress={() => navigation.navigate('Contact', { user })}>
-          <Text style={styles.contactButtonText}>Contact Us</Text>
-        </TouchableOpacity>
-      </ScrollView>
+    <SidebarLayout activeTab="Help" user={user}>
+      <View style={styles.container}>
+        <Text style={styles.text}>Help Screen Placeholder</Text>
+      </View>
     </SidebarLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  text: {
+    fontSize: 22,
+    color: '#333',
+  },
+  content: {
+    flex: 1,
+    backgroundColor: '#ededed',
+    justifyContent: 'flex-start',
+    alignItems: 'stretch',
+    position: 'relative',
+  },
+  contentInner: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
   },
-  title: {
-    fontSize: 24,
+  contentText: {
+    fontSize: 28,
+    color: '#333',
     fontWeight: 'bold',
-    marginBottom: 4,
+    opacity: 0.7,
   },
-  subtitle: {
+  userTypeFooter: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    backgroundColor: '#FFD600',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  userTypeFooterText: {
+    color: '#222',
+    fontWeight: 'bold',
     fontSize: 16,
-    color: '#555',
-    marginBottom: 30,
-  },
-  teamContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    flexWrap: 'wrap',
-    gap: 20,
-    marginBottom: 35,
-  },
-  card: {
-    alignItems: 'center',
-    width: 300,
-    padding: 10,
-    marginBottom: 30,
-  },
-  image: {
-    width: 120,
-    height: 120,
-    borderRadius: 200,
-    marginBottom: 10,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  role: {
-    fontSize: 14,
-    color: '#888',
-  },
-  task: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginVertical: 4,
-  },
-  email: {
-    fontSize: 12,
-    color: '#0066cc',
-    textAlign: 'center',
-  },
-  contactButton: {
-    backgroundColor: '#FFD305',
-    paddingVertical: 12,
-    paddingHorizontal: 150,
-    borderRadius: 8,
-    marginTop: 20,
-  },
-  contactButtonText: {
-    color: '#000',
-    fontSize: 20,
-    fontWeight: '600',
-    textAlign: 'center',
   },
 });
