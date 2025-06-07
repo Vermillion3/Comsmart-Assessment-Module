@@ -40,6 +40,7 @@ ComSmart Upgrade Module
 ├── .gitignore
 └── README.md
 ```
+```
 
 ## Features
 - **User Authentication**: Users can register and log in to their accounts.
