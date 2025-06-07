@@ -1,46 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, ScrollView, Alert } from 'react-native';
 import SidebarLayout from '../SidebarLayout';
 import { useNavigation, useRoute } from '@react-navigation/native';
-// static
-const ASSESSMENTS = [
-  {
-    title: 'PRACTICE ASSESSMENT: QUIZ',
-    subtitle: 'GENERATED ASSESSMENT',
-    prerequisite: 'Chapter 1',
-    progress: 'Completed',
-    progressColor: '#2ecc40',
-    score: '7/15',
-    scoreColor: '#f1c40f',
-  },
-  {
-    title: 'PRACTICE ASSESSMENT: COMPATIBILITY',
-    subtitle: 'GENERATED ASSESSMENT',
-    prerequisite: 'Chapter 2',
-    progress: 'Completed',
-    progressColor: '#2ecc40',
-    score: '5/5',
-    scoreColor: '#2ecc40',
-  },
-  {
-    title: 'PRACTICE ASSESSMENT: PART-PICKER',
-    subtitle: 'GENERATED ASSESSMENT',
-    prerequisite: 'Chapter 2',
-    progress: 'In Progress',
-    progressColor: '#f1c40f',
-    score: '-/15',
-    scoreColor: '#333',
-  },
-  {
-    title: 'FINAL ASSESSMENT',
-    subtitle: 'SIR REYMOND REDDINGTON',
-    prerequisite: 'Learning Materials Completion',
-    progress: 'Not Started',
-    progressColor: '#e74c3c',
-    score: '-/100',
-    scoreColor: '#333',
-    isFinal: true,
-  },
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect } from 'react';
+
+// Add assessment type constants
+const ASSESSMENT_TYPES = [
+  { type: 'quiz', title: 'QUIZ', screen: 'QuizScreen' },
+  { type: 'compatibility', title: 'COMPATIBILITY', screen: 'CompatibilityScreen' },
+  { type: 'partPicker', title: 'PART-PICKER', screen: 'PartPickerScreen' },
+  { type: 'final', title: 'FINAL ASSESSMENT', screen: 'FinalAssessmentScreen' },
 ];
 
 export default function AssessmentScreen() {
@@ -50,7 +20,71 @@ export default function AssessmentScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [deployedQuizzes, setDeployedQuizzes] = useState([]);
+  const [quizResults, setQuizResults] = useState({});
+  const [myQuizResults, setMyQuizResults] = useState([]);
+  const [deployedCompatibilityAssessments, setDeployedCompatibilityAssessments] = useState([]);
+  const [deployedPartPicker, setDeployedPartPicker] = useState(null);
+  const [partPickerAssessments, setPartPickerAssessments] = useState([]);
+  const [finalAssessments, setFinalAssessments] = useState([]);
   const isFacilitator = user?.userType === 'facilitator';
+
+  React.useEffect(() => {
+    // Load all deployed quizzes and results from AsyncStorage
+    const loadData = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('DEPLOYED_QUIZZES');
+        if (stored) {
+          const quizzes = JSON.parse(stored);
+          console.log('Loaded quizzes:', quizzes); // Debug log
+          setDeployedQuizzes(Array.isArray(quizzes) ? quizzes : []);
+        }
+
+        const storedResults = await AsyncStorage.getItem('QUIZ_RESULTS');
+        if (storedResults && user?.id) {
+          const results = JSON.parse(storedResults);
+          if (!Array.isArray(results)) {
+            setQuizResults(results);
+            const quizResultsArr = [];
+            Object.keys(results).forEach((quizId) => {
+              if (results[quizId][user.id]) {
+                quizResultsArr.push({
+                  quizId,
+                  ...results[quizId][user.id],
+                });
+              }
+            });
+            setMyQuizResults(quizResultsArr);
+          }
+        }
+
+        // Load compatibility assessments
+        const storedCompatibility = await AsyncStorage.getItem('DEPLOYED_COMPATIBILITY');
+        if (storedCompatibility) {
+          const compatibilityAssessments = JSON.parse(storedCompatibility);
+          setDeployedCompatibilityAssessments(Array.isArray(compatibilityAssessments) ? compatibilityAssessments : []);
+        }
+
+        // Load part-picker assessments
+        const storedPartPicker = await AsyncStorage.getItem('DEPLOYED_PART_PICKER');
+        if (storedPartPicker) {
+          const partPickerData = JSON.parse(storedPartPicker);
+          setPartPickerAssessments(Array.isArray(partPickerData) ? partPickerData : []);
+        }
+
+        // Load final assessments
+        const storedFinal = await AsyncStorage.getItem('DEPLOYED_FINAL_ASSESSMENTS');
+        if (storedFinal) {
+          const finals = JSON.parse(storedFinal);
+          setFinalAssessments(Array.isArray(finals) ? finals : []);
+        }
+      } catch (error) {
+        console.error('Error loading assessments:', error);
+      }
+    };
+
+    loadData();
+  }, [user?.id]);
 
   const handleResults = (assessment) => {
     navigation.navigate('AssessmentResultsScreen', { user, assessmentType: assessment.title });
@@ -81,6 +115,102 @@ export default function AssessmentScreen() {
     setModalVisible(true);
   };
 
+  // Update the card rendering for part-picker assessment
+  const renderPartPickerAssessments = () => {
+    return partPickerAssessments.map((assessment, idx) => (
+      <View key={`part_picker_${idx}`} style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => navigation.navigate('PartPickerScreen', { 
+            user,
+            assessmentId: assessment.id 
+          })}
+          activeOpacity={0.85}
+        >
+          <View style={styles.cardLeft}>
+            <Text style={styles.cardTitle}>PRACTICE ASSESSMENT: PART-PICKER {idx + 1}</Text>
+            <Text style={styles.cardSubtitle}>
+              Price Limit: ₱{assessment.priceLimit}
+            </Text>
+          </View>
+          <View style={styles.cardMid}>
+            <Text style={styles.cardPrerequisite}>Hardware Knowledge</Text>
+          </View>
+          <View style={styles.cardMid}>
+            <Text style={[styles.cardProgress, { color: '#2ecc40' }]}>Available</Text>
+          </View>
+          <View style={styles.cardRightWrapper}>
+            <View style={styles.cardRight}>
+              {isFacilitator ? (
+                <TouchableOpacity
+                  style={styles.resultsButton}
+                  onPress={() => navigation.navigate('PartPickerScreen', { 
+                    user,
+                    assessmentId: assessment.id 
+                  })}
+                >
+                  <Text style={styles.resultsButtonText}>Results</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={[styles.cardScore, { color: '#333' }]}>
+                  {assessment.results?.[user.id]?.score || '-/-'}
+                </Text>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
+    ));
+  };
+
+  // Add this function to render final assessments
+  const renderFinalAssessments = () => {
+    return finalAssessments.map((assessment, idx) => (
+      <View key={`final_assessment_${idx}`} style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => navigation.navigate('FinalAssessmentScreen', { 
+            user,
+            assessmentId: assessment.id 
+          })}
+          activeOpacity={0.85}
+        >
+          <View style={styles.cardLeft}>
+            <Text style={styles.cardTitle}>PRACTICE ASSESSMENT: FINAL ASSESSMENT {idx + 1}</Text>
+            <Text style={styles.cardSubtitle}>
+              Price Limit: {assessment.currency === 'USD' ? '$' : '₱'}{assessment.costLimit}
+            </Text>
+          </View>
+          <View style={styles.cardMid}>
+            <Text style={styles.cardPrerequisite}>All Chapters</Text>
+          </View>
+          <View style={styles.cardMid}>
+            <Text style={[styles.cardProgress, { color: '#2ecc40' }]}>Available</Text>
+          </View>
+          <View style={styles.cardRightWrapper}>
+            <View style={styles.cardRight}>
+              {isFacilitator ? (
+                <TouchableOpacity
+                  style={styles.resultsButton}
+                  onPress={() => navigation.navigate('FinalAssessmentScreen', { 
+                    user,
+                    assessmentId: assessment.id 
+                  })}
+                >
+                  <Text style={styles.resultsButtonText}>Results</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={[styles.cardScore, { color: '#333' }]}>
+                  {assessment.results?.[user.id]?.score || '-/-'}
+                </Text>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
+    ));
+  };
+
   return (
     <SidebarLayout activeTab="Assessment" user={user}>
       <View style={styles.outerContainer}>
@@ -94,59 +224,217 @@ export default function AssessmentScreen() {
             </View>
           </View>
           <View style={styles.cardsWrapper}>
-            {ASSESSMENTS.map((a, idx) => (
-              <View key={a.title} style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+            {/* Show deployed quizzes */}
+            {deployedQuizzes.map((quiz, quizIdx) => (
+              <View key={`deployed_quiz_${quizIdx}`} style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
                 <TouchableOpacity
-                  style={[
-                    styles.card,
-                    a.isFinal && styles.finalCard,
-                  ]}
-                  onPress={() => handlePress(a)}
+                  style={styles.card}
+                  onPress={() => navigation.navigate('QuizScreen', { user, quizIdx })}
                   activeOpacity={0.85}
                 >
                   <View style={styles.cardLeft}>
-                    <Text style={styles.cardTitle}>{a.title}</Text>
-                    <Text style={styles.cardSubtitle}>{a.subtitle}</Text>
+                    <Text style={styles.cardTitle}>PRACTICE ASSESSMENT: QUIZ {quizIdx + 1}</Text>
+                    <Text style={styles.cardSubtitle}>Custom Quiz ({quiz.length} items)</Text>
                   </View>
                   <View style={styles.cardMid}>
-                    <Text style={styles.cardPrerequisite}>{a.prerequisite}</Text>
+                    <Text style={styles.cardPrerequisite}>Chapter 1</Text>
                   </View>
                   <View style={styles.cardMid}>
-                    <Text style={[styles.cardProgress, { color: a.progressColor }]}>{a.progress}</Text>
+                    <Text style={[styles.cardProgress, { color: '#2ecc40' }]}>Available</Text>
                   </View>
-                  {/* Results button aligned with header */}
                   <View style={styles.cardRightWrapper}>
                     <View style={styles.cardRight}>
                       {isFacilitator ? (
                         <TouchableOpacity
-                          style={{
-                            backgroundColor: '#FFD305',
-                            borderRadius: 6,
-                            paddingVertical: 8,
-                            paddingHorizontal: 18,
-                            alignSelf: 'center',
-                            elevation: 2,
-                          }}
-                          onPress={() => handleResults(a)}
+                          style={styles.resultsButton}
+                          onPress={() => navigation.navigate('QuizScreen', { user, quizIdx })}
                         >
-                          <Text style={{ fontWeight: 'bold', color: '#222', fontSize: 15 }}>Results</Text>
+                          <Text style={styles.resultsButtonText}>Results</Text>
                         </TouchableOpacity>
                       ) : (
-                        <Text style={[styles.cardScore, { color: a.scoreColor }]}>{a.score}</Text>
+                        <Text style={[styles.cardScore, { color: '#333' }]}>
+                          {myQuizResults[quizIdx] ? `${myQuizResults[quizIdx].score}` : '-/-'}
+                        </Text>
                       )}
                     </View>
                   </View>
                 </TouchableOpacity>
               </View>
             ))}
+
+            {/* Static assessments for practice - only for facilitator */}
+            {!isFacilitator && (
+              <>
+                <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+                  <TouchableOpacity
+                    style={styles.card}
+                    onPress={() => handlePress({ title: 'PRACTICE ASSESSMENT: QUIZ' })}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.cardLeft}>
+                      <Text style={styles.cardTitle}>PRACTICE ASSESSMENT: QUIZ</Text>
+                      <Text style={styles.cardSubtitle}>10 Questions</Text>
+                    </View>
+                    <View style={styles.cardMid}>
+                      <Text style={styles.cardPrerequisite}>Chapter 1</Text>
+                    </View>
+                    <View style={styles.cardMid}>
+                      <Text style={[styles.cardProgress, { color: '#2ecc40' }]}>Available</Text>
+                    </View>
+                    <View style={styles.cardRightWrapper}>
+                      <View style={styles.cardRight}>
+                        <Text style={[styles.cardScore, { color: '#333' }]}>
+                          {myQuizResults.length > 0 ? `${myQuizResults[0].score}` : '-/-'}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+                  <TouchableOpacity
+                    style={styles.card}
+                    onPress={() => handlePress({ title: 'PRACTICE ASSESSMENT: COMPATIBILITY' })}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.cardLeft}>
+                      <Text style={styles.cardTitle}>PRACTICE ASSESSMENT: COMPATIBILITY</Text>
+                      <Text style={styles.cardSubtitle}>Compatibility Test</Text>
+                    </View>
+                    <View style={styles.cardMid}>
+                      <Text style={styles.cardPrerequisite}>Chapter 1</Text>
+                    </View>
+                    <View style={styles.cardMid}>
+                      <Text style={[styles.cardProgress, { color: '#2ecc40' }]}>Available</Text>
+                    </View>
+                    <View style={styles.cardRightWrapper}>
+                      <View style={styles.cardRight}>
+                        <Text style={[styles.cardScore, { color: '#333' }]}>
+                          {myQuizResults.length > 1 ? `${myQuizResults[1].score}` : '-/-'}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+                  <TouchableOpacity
+                    style={styles.card}
+                    onPress={() => handlePress({ title: 'PRACTICE ASSESSMENT: PART-PICKER' })}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.cardLeft}>
+                      <Text style={styles.cardTitle}>PRACTICE ASSESSMENT: PART-PICKER</Text>
+                      <Text style={styles.cardSubtitle}>Select the Right Parts</Text>
+                    </View>
+                    <View style={styles.cardMid}>
+                      <Text style={styles.cardPrerequisite}>Chapter 1</Text>
+                    </View>
+                    <View style={styles.cardMid}>
+                      <Text style={[styles.cardProgress, { color: '#2ecc40' }]}>Available</Text>
+                    </View>
+                    <View style={styles.cardRightWrapper}>
+                      <View style={styles.cardRight}>
+                        <Text style={[styles.cardScore, { color: '#333' }]}>
+                          {myQuizResults.length > 2 ? `${myQuizResults[2].score}` : '-/-'}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+                  <TouchableOpacity
+                    style={styles.card}
+                    onPress={() => handlePress({ title: 'FINAL ASSESSMENT' })}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.cardLeft}>
+                      <Text style={styles.cardTitle}>FINAL ASSESSMENT</Text>
+                      <Text style={styles.cardSubtitle}>Comprehensive Test</Text>
+                    </View>
+                    <View style={styles.cardMid}>
+                      <Text style={styles.cardPrerequisite}>All Chapters</Text>
+                    </View>
+                    <View style={styles.cardMid}>
+                      <Text style={[styles.cardProgress, { color: '#2ecc40' }]}>Available</Text>
+                    </View>
+                    <View style={styles.cardRightWrapper}>
+                      <View style={styles.cardRight}>
+                        <Text style={[styles.cardScore, { color: '#333' }]}>
+                          {myQuizResults.length > 3 ? `${myQuizResults[3].score}` : '-/-'}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {/* Show deployed compatibility assessments */}
+            {deployedCompatibilityAssessments.map((assessment, idx) => (
+              <View key={`compatibility_${idx}`} style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+                <TouchableOpacity
+                  style={styles.card}
+                  onPress={() => navigation.navigate('CompatibilityScreen', { 
+                    user, 
+                    assessmentId: assessment.id 
+                  })}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.cardLeft}>
+                    <Text style={styles.cardTitle}>COMPATIBILITY ASSESSMENT {idx + 1}</Text>
+                    <Text style={styles.cardSubtitle}>
+                      Hardware Compatibility ({assessment.pairs?.length || 0} pairs)
+                    </Text>
+                  </View>
+                  <View style={styles.cardMid}>
+                    <Text style={styles.cardPrerequisite}>Hardware Knowledge</Text>
+                  </View>
+                  <View style={styles.cardMid}>
+                    <Text style={[styles.cardProgress, { color: '#2ecc40' }]}>Available</Text>
+                  </View>
+                  <View style={styles.cardRightWrapper}>
+                    <View style={styles.cardRight}>
+                      {isFacilitator ? (
+                        <TouchableOpacity
+                          style={styles.resultsButton}
+                          onPress={() => navigation.navigate('CompatibilityScreen', { 
+                            user, 
+                            assessmentId: assessment.id 
+                          })}
+                        >
+                          <Text style={styles.resultsButtonText}>Results</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={[styles.cardScore, { color: '#333' }]}>
+                          {assessment.results?.[user.id]?.score || '-/-'}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            {/* Add Part-Picker Assessments Cards */}
+            {partPickerAssessments.length > 0 && renderPartPickerAssessments()}
+
+            {/* Add Final Assessments Cards */}
+            {finalAssessments.length > 0 && renderFinalAssessments()}
           </View>
-          <View style={styles.createAssessmentContainer}>
-            <TouchableOpacity style={styles.createAssessmentBtn} onPress={() => handlePress({ title: 'Create Assessment' })}>
-              <Text style={styles.createAssessmentIcon}>📊</Text>
-              <Text style={styles.createAssessmentText}>CREATE ASSESSMENT</Text>
-            </TouchableOpacity>
-          </View>
+
+          {/* Only show Create Assessment button for facilitator */}
+          {isFacilitator && (
+            <View style={styles.createAssessmentContainer}>
+              <TouchableOpacity
+                style={styles.createAssessmentBtn}
+                onPress={() => setShowCreateModal(true)}
+              >
+                <Text style={styles.createAssessmentIcon}>📊</Text>
+                <Text style={styles.createAssessmentText}>CREATE ASSESSMENT</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
+
         <Modal
           visible={modalVisible}
           transparent
@@ -174,24 +462,37 @@ export default function AssessmentScreen() {
               <Text style={styles.createModalHeader}>ASSESSMENT GENERATION</Text>
               <Text style={styles.createModalSub}>Select Assessment Type</Text>
               <View style={styles.createModalGrid}>
-                <View style={styles.createModalRow}>
-                  <TouchableOpacity style={styles.createModalBtn} onPress={() => { setShowCreateModal(false); navigation.navigate('QuizScreen', { user }); }}>
-                    <Text style={styles.createModalBtnText}>QUIZ</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.createModalBtn} onPress={() => { setShowCreateModal(false); navigation.navigate('PartPickerScreen', { user }); }}>
-                    <Text style={styles.createModalBtnText}>PART-PICKER</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.createModalRow}>
-                  <TouchableOpacity style={styles.createModalBtn} onPress={() => { setShowCreateModal(false); navigation.navigate('CompatibilityScreen', { user }); }}>
-                    <Text style={styles.createModalBtnText}>COMPATIBILITY</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.createModalBtn} onPress={() => { setShowCreateModal(false); navigation.navigate('FinalAssessmentScreen', { user }); }}>
-                    <Text style={styles.createModalBtnText}>FINAL ASSESSMENT</Text>
-                  </TouchableOpacity>
-                </View>
+                {ASSESSMENT_TYPES.map((type, index) => (
+                  index % 2 === 0 && (
+                    <View key={type.type} style={styles.createModalRow}>
+                      <TouchableOpacity 
+                        style={styles.createModalBtn}
+                        onPress={() => {
+                          setShowCreateModal(false);
+                          navigation.navigate(type.screen, { user });
+                        }}
+                      >
+                        <Text style={styles.createModalBtnText}>{type.title}</Text>
+                      </TouchableOpacity>
+                      {ASSESSMENT_TYPES[index + 1] && (
+                        <TouchableOpacity 
+                          style={styles.createModalBtn}
+                          onPress={() => {
+                            setShowCreateModal(false);
+                            navigation.navigate(ASSESSMENT_TYPES[index + 1].screen, { user });
+                          }}
+                        >
+                          <Text style={styles.createModalBtnText}>{ASSESSMENT_TYPES[index + 1].title}</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )
+                ))}
               </View>
-              <TouchableOpacity style={styles.createModalReturnBtn} onPress={() => setShowCreateModal(false)}>
+              <TouchableOpacity 
+                style={styles.createModalReturnBtn}
+                onPress={() => setShowCreateModal(false)}
+              >
                 <Text style={styles.createModalReturnBtnText}>Return</Text>
               </TouchableOpacity>
             </View>
@@ -471,6 +772,24 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 18,
     color: '#222',
+  },
+  resultsButton: {
+    backgroundColor: '#FFD305',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    alignSelf: 'center',
+    elevation: 2,
+  },
+  resultsButtonText: {
+    fontWeight: 'bold',
+    color: '#222',
+    fontSize: 15,
+  },
+  facilitatorActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 });
 

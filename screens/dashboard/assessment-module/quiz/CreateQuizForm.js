@@ -13,13 +13,13 @@ function RadioButton({ selected, label, onPress }) {
   );
 }
 
-export default function CreateQuizForm({ onClose, onSave }) {
-  const [type, setType] = useState('multiple');
-  const [question, setQuestion] = useState('');
-  const [choices, setChoices] = useState(['', '', '', '']);
-  // answer is now the identifier: 'a', 'b', 'c', 'd'
-  const [answer, setAnswer] = useState('');
-  const [trueFalse, setTrueFalse] = useState('TRUE');
+export default function CreateQuizForm({ onClose, onSave, editQuiz }) {
+  // If editing, initialize state from editQuiz
+  const [type, setType] = useState(editQuiz?.type || 'multiple');
+  const [question, setQuestion] = useState(editQuiz?.question || '');
+  const [choices, setChoices] = useState(editQuiz?.choices || ['', '', '', '']);
+  const [answer, setAnswer] = useState(editQuiz?.answer || '');
+  const [trueFalse, setTrueFalse] = useState(editQuiz?.type === 'truefalse' ? (editQuiz?.answer || 'TRUE') : 'TRUE');
 
   const handleChoiceChange = (idx, value) => {
     const updated = [...choices];

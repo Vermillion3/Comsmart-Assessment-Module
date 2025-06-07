@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Modal, TextInput, Alert } from 'react-native';
 import SidebarLayout from '../../SidebarLayout';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PC_COMPONENTS = [
   { label: 'GPU', icon: require('../../../../assets/part_icons/GPU.png') },
@@ -18,6 +19,7 @@ const HARDWARE_OPTIONS = [
 
 export default function CreateCompatibilityScreen() {
   const route = useRoute();
+  const navigation = useNavigation();
   const user = route.params?.user;
   
   
@@ -100,6 +102,51 @@ export default function CreateCompatibilityScreen() {
     h.label.toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleDeploy = async () => {
+    try {
+      // Validate if there are pairs to deploy
+      if (pairs.length === 0) {
+        Alert.alert('Error', 'Please add at least one component pair');
+        return;
+      }
+
+      // Validate if left hardware is selected for each pair
+      const missingLeftHardware = pairs.some(pair => !pair.left.hardware);
+      if (missingLeftHardware) {
+        Alert.alert('Error', 'Please add hardware for all left components');
+        return;
+      }
+
+      // Create assessment object
+      const newAssessment = {
+        id: `comp_${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        pairs: pairs,
+        results: {}
+      };
+
+      // Get existing assessments or initialize empty array
+      const stored = await AsyncStorage.getItem('DEPLOYED_COMPATIBILITY');
+      let assessments = [];
+      if (stored) {
+        assessments = JSON.parse(stored);
+      }
+
+      // Add new assessment and save
+      const updatedAssessments = [...assessments, newAssessment];
+      await AsyncStorage.setItem('DEPLOYED_COMPATIBILITY', JSON.stringify(updatedAssessments));
+
+      Alert.alert(
+        'Success',
+        'Assessment deployed successfully',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } catch (error) {
+      console.error('Deploy error:', error);
+      Alert.alert('Error', 'Failed to deploy assessment');
+    }
+  };
+
   return (
     <SidebarLayout activeTab="Assessment" user={user}>
       <View style={styles.outerWrapper}>
@@ -135,35 +182,12 @@ export default function CreateCompatibilityScreen() {
               <View style={styles.compatibleTo}>
                 <Text style={styles.compatibleText}>COMPATIBLE TO:</Text>
               </View>
-              {/* Right Card */}
+              {/* Right Card - No Add Hardware button */}
               <View style={styles.card}>
                 <View style={styles.cardLeft}>
                   <Image source={pair.right.component.icon} style={styles.icon} />
                   <Text style={styles.cardLabel}>{pair.right.component.label}</Text>
-                  {pair.right.hardware && (
-                    <View style={styles.selectedHardware}>
-                      <Image source={pair.right.hardware.icon} style={styles.selectedIcon} />
-                      <Text style={styles.selectedLabel}>{pair.right.hardware.label}</Text>
-                      <TouchableOpacity onPress={() => handleRemoveHardware(idx, 'right')}>
-                        <Text style={styles.removeHardwareBtn}>✕</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
                 </View>
-                {!pair.right.hardware && (
-                  <TouchableOpacity
-                    style={styles.addBtn}
-                    onPress={() => handleAddHardware(idx, 'right')}
-                  >
-                    <Text style={styles.addBtnText}>＋ Add Hardware</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  style={styles.removeBtn}
-                  onPress={() => handleRemovePair(idx)}
-                >
-                  <Text style={styles.removeBtnText}>🗑</Text>
-                </TouchableOpacity>
               </View>
             </View>
           ))}
@@ -171,6 +195,15 @@ export default function CreateCompatibilityScreen() {
         <TouchableOpacity style={styles.addComponentBtn} onPress={handleAddPair}>
           <Text style={styles.addComponentBtnText}>＋ Add PC Component Pair</Text>
         </TouchableOpacity>
+        {/* Add Deploy button at bottom left */}
+        {pairs.length > 0 && (
+          <TouchableOpacity 
+            style={styles.deployButton}
+            onPress={handleDeploy}
+          >
+            <Text style={styles.deployButtonText}>DEPLOY ASSESSMENT</Text>
+          </TouchableOpacity>
+        )}
         <Modal
           visible={showComponentModal}
           transparent
@@ -463,5 +496,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     backgroundColor: '#fff',
+  },
+  deployButton: {
+    position: 'absolute',
+    bottom: 32,
+    left: 32,
+    backgroundColor: '#FFD305',
+    borderRadius: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    zIndex: 10,
+  },
+  
+  deployButtonText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#222',
+    letterSpacing: 1,
   },
 });
