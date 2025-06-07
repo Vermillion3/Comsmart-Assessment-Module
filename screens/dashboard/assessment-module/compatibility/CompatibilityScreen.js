@@ -223,12 +223,12 @@ export default function CompatibilityScreen() {
         const assessment = assessments.find(a => a.id === currentAssessment.id);
         
         if (assessment) {
-          // Initialize results object if it doesn't exist
+         
           if (!assessment.results) {
             assessment.results = {};
           }
 
-          // Save participant's submission
+      
           assessment.results[user.id] = {
             name: user.username || user.emailAddress,
             submittedAt: new Date().toISOString(),
@@ -261,7 +261,7 @@ export default function CompatibilityScreen() {
     }));
   };
 
-  // Add this function before the handleSaveResults
+  
   const calculateScore = (answers) => {
     if (!answers) return 0;
     return Object.values(answers).filter(v => v).length;

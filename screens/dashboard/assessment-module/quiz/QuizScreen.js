@@ -5,50 +5,6 @@ import { useRoute } from '@react-navigation/native';
 import CreateQuizForm from './CreateQuizForm';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// static
-const DEFAULT_QUESTIONS = [
-  {
-    question: '1. WHAT IS THE MAIN CIRCUIT BOARD OF A COMPUTER CALLED?',
-    options: ['CPU', 'RAM', 'MOTHERBOARD', 'HARD DRIVE'],
-    type: 'single',
-  },
-  {
-    question: '2. WHICH COMPONENT IS RESPONSIBLE FOR TEMPORARILY STORING DATA FOR QUICK ACCESS BY THE CPU?',
-    options: ['SSD', 'ROM', 'ROM', 'ROM'],
-    type: 'single',
-  },
-  {
-    question: '3. COMPUTER HARDWARE QUIZ (TRUE OR FALSE)',
-    options: ['TRUE', 'FALSE'],
-    type: 'single',
-  },
-  {
-    question: '4. RAM IS A TYPE OF PERMANENT STORAGE THAT KEEPS DATA EVEN WHEN THE COMPUTER IS TURNED OFF.',
-    options: ['TRUE', 'FALSE'],
-    type: 'single',
-  },
-  {
-    question: '5. THE ________ IS RESPONSIBLE FOR CONVERTING AC POWER FROM THE WALL OUTLET INTO DC POWER FOR THE COMPUTER COMPONENTS.',
-    options: [],
-    type: 'input',
-  },
-  {
-    question: '6. WHICH COMPONENT IS RESPONSIBLE FOR TEMPORARILY STORING DATA FOR QUICK ACCESS BY THE CPU?',
-    options: [],
-    type: 'input',
-  },
-  {
-    question: '7. The form factor of the motherboard must be the same with the Case when selecting both hardware.',
-    options: ['TRUE', 'FALSE'],
-    type: 'single',
-  },
-  {
-    question: '8. LGA (land grid array) socket is only compatible for AMD Ryzen processors.',
-    options: ['TRUE', 'FALSE'],
-    type: 'single',
-  },
-];
-
 const QUIZ_STORAGE_KEY = 'DEPLOYED_QUIZZES';
 const QUIZ_RESULT_KEY = 'QUIZ_RESULTS';
 
@@ -63,11 +19,11 @@ const normalizeQuestions = (questions) =>
   });
 
 function getQuizId(route, deployedQuizzes) {
-  // Use quizIdx from navigation params, fallback to 'main'
+  
   if (typeof route?.params?.quizIdx === 'number') {
     return `quiz_${route.params.quizIdx}`;
   }
-  // If creating a new quiz (not viewing deployed), use next index
+  
   return `quiz_${deployedQuizzes.length}`;
 }
 
@@ -89,13 +45,13 @@ export default function QuizScreen() {
   const [editMode, setEditMode] = useState(false);
   const [editQuizIdx, setEditQuizIdx] = useState(null);
 
-  // Add this state to control whether we're in quiz creation mode
+  
   const [isCreatingNewQuiz] = useState(!route.params?.quizIdx);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleCreateQuiz = (quiz) => {
     if (editMode && editQuizIdx !== null) {
-      // Edit mode: update quiz at index
+      
       const updated = [...createdQuizzes];
       updated[editQuizIdx] = quiz;
       setCreatedQuizzes(updated);

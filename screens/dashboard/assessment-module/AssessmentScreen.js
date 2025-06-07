@@ -90,30 +90,7 @@ export default function AssessmentScreen() {
     navigation.navigate('AssessmentResultsScreen', { user, assessmentType: assessment.title });
   };
 
-  const handlePress = (assessment) => {
-    if (assessment.title === 'PRACTICE ASSESSMENT: QUIZ') {
-      navigation.navigate('QuizScreen', { user });
-      return;
-    }
-    if (assessment.title === 'PRACTICE ASSESSMENT: COMPATIBILITY') {
-      navigation.navigate('CompatibilityScreen', { user });
-      return;
-    }
-    if (assessment.title === 'PRACTICE ASSESSMENT: PART-PICKER') {
-      navigation.navigate('PartPickerScreen', { user });
-      return;
-    }
-    if (assessment.title === 'FINAL ASSESSMENT') {
-      navigation.navigate('FinalAssessmentScreen', { user });
-      return;
-    }
-    if (assessment.title === 'Create Assessment') {
-      setShowCreateModal(true);
-      return;
-    }
-    setSelectedAssessment(assessment);
-    setModalVisible(true);
-  };
+  
 
   // Update the card rendering for part-picker assessment
   const renderPartPickerAssessments = () => {
