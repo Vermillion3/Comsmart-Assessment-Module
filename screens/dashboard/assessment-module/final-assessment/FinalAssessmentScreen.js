@@ -57,6 +57,14 @@ export default function FinalAssessmentScreen() {
   const [submissions, setSubmissions] = useState([]);
   const [mySubmission, setMySubmission] = useState(null);
 
+  // Add state for delete confirmation modal
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Add state for score input and results modal
+  const [scoreInput, setScoreInput] = useState('');
+  const [showResultsModal, setShowResultsModal] = useState(false);
+  const [selectedSubmission, setSelectedSubmission] = useState(null);
+
   // Load all deployed final assessments
   useEffect(() => {
     const loadDeployed = async () => {
@@ -143,6 +151,60 @@ export default function FinalAssessmentScreen() {
     setDeployed(true);
     setShowConfirm(true);
     setDeployedAssessmentId(assessment.id);
+  };
+
+  // Delete assessment handler
+  const handleDeleteAssessment = async () => {
+    if (!deployedAssessmentId) return;
+    const stored = await AsyncStorage.getItem('DEPLOYED_FINAL_ASSESSMENTS');
+    if (stored) {
+      let updated = JSON.parse(stored);
+      updated = updated.filter(a => a.id !== deployedAssessmentId);
+      await AsyncStorage.setItem('DEPLOYED_FINAL_ASSESSMENTS', JSON.stringify(updated));
+    }
+    setShowDeleteConfirm(false);
+    setConstraintsSet(false);
+    setDeployed(false);
+    setSelectedHardware({});
+    setSelectedRamModules({});
+    setCostLimit('');
+    setUseCase('');
+    setPsuLimit('');
+    setBrand('');
+    setDeployedAssessmentId(null);
+    setSubmissions([]);
+    navigation.goBack();
+  };
+
+  // Handle save score
+  const handleSaveScore = async () => {
+    if (!selectedSubmission || !deployedAssessmentId) return;
+    
+    try {
+      const stored = await AsyncStorage.getItem('DEPLOYED_FINAL_ASSESSMENTS');
+      if (stored) {
+        let assessments = JSON.parse(stored);
+        const assessmentIdx = assessments.findIndex(a => a.id === deployedAssessmentId);
+        
+        if (assessmentIdx !== -1) {
+          const submissionIdx = assessments[assessmentIdx].submissions.findIndex(
+            s => s.userId === selectedSubmission.userId
+          );
+          
+          if (submissionIdx !== -1) {
+            assessments[assessmentIdx].submissions[submissionIdx].score = scoreInput;
+            await AsyncStorage.setItem('DEPLOYED_FINAL_ASSESSMENTS', JSON.stringify(assessments));
+            setShowResultsModal(false);
+            setScoreInput('');
+            setSelectedSubmission(null);
+            Alert.alert('Success', 'Score has been saved.');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Save score error:', error);
+      Alert.alert('Error', 'Failed to save score');
+    }
   };
 
   // Part-picker handlers
@@ -382,7 +444,7 @@ export default function FinalAssessmentScreen() {
             {/* Deploy Button for facilitator */}
             {!deployed && isFacilitator && (
               <TouchableOpacity
-                style={styles.deployButton}
+                style={styles.deployButtonFloating}
                 onPress={handleDeploy}
               >
                 <Text style={styles.deployButtonText}>DEPLOY ASSESSMENT</Text>
@@ -391,7 +453,7 @@ export default function FinalAssessmentScreen() {
             {/* Submit Button for participant */}
             {deployed && !isFacilitator && !mySubmission && (
               <TouchableOpacity
-                style={styles.deployButton}
+                style={styles.submitButtonFloating}
                 onPress={handleSubmitAssessment}
               >
                 <Text style={styles.deployButtonText}>SUBMIT ASSESSMENT</Text>
@@ -399,7 +461,7 @@ export default function FinalAssessmentScreen() {
             )}
             {/* Show submitted message for participant */}
             {deployed && !isFacilitator && mySubmission && (
-              <View style={styles.scoreBox}>
+              <View style={styles.submittedFloatingBox}>
                 <Text style={styles.scoreText}>Submitted!</Text>
               </View>
             )}
@@ -543,32 +605,133 @@ export default function FinalAssessmentScreen() {
 
         {/* Facilitator: Show submissions list */}
         {isFacilitator && deployed && (
-          <View style={styles.submissionsBox}>
-            <Text style={styles.submissionsHeader}>Participant Results</Text>
-            {submissions.length === 0 && (
-              <Text style={styles.noSubmissionsText}>No submissions yet.</Text>
-            )}
-            {submissions.map((sub, idx) => (
-              <View key={idx} style={styles.submissionRow}>
-                <Text style={styles.submissionName}>{sub.name}</Text>
-                <Text style={styles.submissionDate}>
-                  Submitted: {new Date(sub.submittedAt).toLocaleString()}
-                </Text>
-                <Text style={styles.scoreText}>Parts: {Object.keys(sub.selectedHardware || {}).length}, RAM: {Object.keys(sub.selectedRamModules || {}).length}</Text>
+          <>
+            <View style={styles.submissionsBox}>
+              <Text style={styles.submissionsHeader}>Participant Results</Text>
+              {submissions.length === 0 && (
+                <Text style={styles.noSubmissionsText}>No submissions yet.</Text>
+              )}
+              {submissions.map((sub, idx) => (
+                <View key={idx} style={styles.submissionRow}>
+                  <Text style={styles.submissionName}>{sub.name}</Text>
+                  <Text style={styles.submissionDate}>
+                    Submitted: {new Date(sub.submittedAt).toLocaleString()}
+                  </Text>
+                  {sub.score && <Text style={styles.scoreText}>Score: {sub.score}/100</Text>}
+                  <TouchableOpacity
+                    style={styles.viewButton}
+                    onPress={() => {
+                      setSelectedSubmission(sub);
+                      setScoreInput(sub.score ? String(sub.score) : '');
+                      setShowResultsModal(true);
+                    }}
+                  >
+                    <Text style={styles.viewButtonText}>View</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
+        {/* Results Modal */}
+        <Modal
+          visible={showResultsModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowResultsModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.resultsModalBox}>
+              <Text style={styles.resultsModalTitle}>Participant Submission</Text>
+              <Text style={styles.resultsModalName}>{selectedSubmission?.name}</Text>
+              <Text style={styles.resultsModalDate}>
+                Submitted: {selectedSubmission?.submittedAt && new Date(selectedSubmission.submittedAt).toLocaleString()}
+              </Text>
+              <Text style={styles.resultsModalSection}>Selected RAM Modules:</Text>
+              <View style={styles.hardwareList}>
+                {selectedSubmission?.selectedRamModules &&
+                  Object.entries(selectedSubmission.selectedRamModules).map(([slot, hw], idx) => (
+                    <Text key={idx} style={styles.hardwareItem}>
+                      Slot {parseInt(slot) + 1}: {hw.label}
+                    </Text>
+                  ))}
+              </View>
+              <Text style={styles.resultsModalSection}>Other Selected Parts:</Text>
+              <View style={styles.hardwareList}>
+                {selectedSubmission?.selectedHardware &&
+                  Object.entries(selectedSubmission.selectedHardware).map(([idx, hw]) => (
+                    <Text key={idx} style={styles.hardwareItem}>
+                      {PARTS[idx]?.label}: {hw.label}
+                    </Text>
+                  ))}
+              </View>
+              <View style={styles.gradeRow}>
+                <Text style={styles.gradeLabel}>Grade the participant:</Text>
+                <TextInput
+                  style={styles.gradeInput}
+                  value={scoreInput}
+                  onChangeText={setScoreInput}
+                  keyboardType="numeric"
+                  placeholder="0-100"
+                  maxLength={3}
+                />
+              </View>
+              <TouchableOpacity
+                style={styles.saveScoreButton}
+                onPress={handleSaveScore}
+              >
+                <Text style={styles.saveScoreButtonText}>Save Score</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowResultsModal(false)}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          visible={showDeleteConfirm}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDeleteConfirm(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Delete Final Assessment?</Text>
+              <Text style={styles.modalText}>
+                This will permanently delete the deployed final assessment and all participant results. Are you sure?
+              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', width: '100%', gap: 12, marginTop: 10 }}>
                 <TouchableOpacity
-                  style={styles.viewButton}
-                  onPress={() => {
-                    Alert.alert(
-                      'Participant Submission',
-                      `Parts:\n${Object.entries(sub.selectedHardware || {}).map(([idx, hw]) => `${PARTS[idx]?.label}: ${hw.label}`).join('\n')}\n\nRAM:\n${Object.entries(sub.selectedRamModules || {}).map(([slot, hw]) => `Slot ${parseInt(slot) + 1}: ${hw.label}`).join('\n')}`
-                    );
-                  }}
+                  style={styles.returnBtn}
+                  onPress={() => setShowDeleteConfirm(false)}
                 >
-                  <Text style={styles.viewButtonText}>View</Text>
+                  <Text style={styles.returnBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={handleDeleteAssessment}
+                >
+                  <Text style={styles.deleteBtnText}>Delete</Text>
                 </TouchableOpacity>
               </View>
-            ))}
+            </View>
           </View>
+        </Modal>
+
+        {/* Delete Assessment Button - Positioned at bottom right */}
+        {isFacilitator && deployed && (
+          <TouchableOpacity
+            style={styles.deleteAssessmentBtn}
+            onPress={() => setShowDeleteConfirm(true)}
+          >
+            <Text style={styles.deleteAssessmentBtnText}>Delete Assessment</Text>
+          </TouchableOpacity>
         )}
       </View>
     </SidebarLayout>
@@ -894,10 +1057,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     marginLeft: 8,
   },
-  deployBtnText: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: '#222',
+  deployButtonFloating: {
+    position: 'absolute',
+    left: 32,
+    bottom: 32,
+    backgroundColor: '#FFD305',
+    borderRadius: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    elevation: 6,
+    minWidth: 180,
+  },
+  submitButtonFloating: {
+    position: 'absolute',
+    left: 32,
+    bottom: 32,
+    backgroundColor: '#FFD305',
+    borderRadius: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    elevation: 6,
+    minWidth: 180,
   },
   constraintsSummary: {
     backgroundColor: '#fff',
@@ -1031,7 +1217,6 @@ const styles = StyleSheet.create({
     color: '#222',
   },
   scoreBox: {
-    marginTop: 16,
     padding: 12,
     borderRadius: 8,
     backgroundColor: '#e8f5e9',
@@ -1039,18 +1224,30 @@ const styles = StyleSheet.create({
     borderColor: '#c8e6c9',
     alignItems: 'center',
   },
-  scoreText: {
-    fontWeight: 'bold',
-    fontSize: 18,
-    color: '#2e7d32',
+  submittedFloatingBox: {
+    position: 'absolute',
+    left: 32,
+    bottom: 32,
+    backgroundColor: '#e8f5e9',
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    zIndex: 30,
+    minWidth: 120,
+    elevation: 6,
   },
   submissionsBox: {
-    width: '100%',
     backgroundColor: '#fff',
     borderRadius: 8,
-    padding: 16,
-    elevation: 2,
+    padding: 18,
     marginTop: 24,
+    marginBottom: 12,
+    width: 380, // Reduced from 480
+    alignSelf: 'center',
+    elevation: 2,
   },
   submissionsHeader: {
     fontWeight: 'bold',
@@ -1093,6 +1290,142 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     color: '#222',
+  },
+  deleteAssessmentBtnWrapper: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    zIndex: 10,
+  },
+  deleteAssessmentBtn: {
+    position: 'absolute',
+    right: 32,
+    bottom: 32,
+    backgroundColor: '#ff5252',
+    borderRadius: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    elevation: 6,
+    minWidth: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  deleteAssessmentBtnText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#fff',
+    letterSpacing: 1,
+  },
+  deleteBtn: {
+    backgroundColor: '#ff5252',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+    marginLeft: 8,
+  },
+  deleteBtnText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#fff',
+  },
+  gradeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+    marginBottom: 8,
+    gap: 8,
+    alignSelf: 'flex-start',
+  },
+  gradeLabel: {
+    fontWeight: 'bold',
+    fontSize: 15,
+    color: '#222',
+  },
+  gradeInput: {
+    borderWidth: 1,
+    borderColor: '#bbb',
+    borderRadius: 6,
+    padding: 6,
+    width: 60,
+    fontSize: 15,
+    backgroundColor: '#f8f8f8',
+    color: '#222',
+    marginLeft: 8,
+  },
+  saveScoreButton: {
+    backgroundColor: '#FFD305',
+    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    marginTop: 8,
+    marginBottom: 8,
+    alignSelf: 'flex-end',
+  },
+  saveScoreButtonText: {
+    fontWeight: 'bold',
+    color: '#222',
+    fontSize: 15,
+  },
+  resultsModalBox: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    minWidth: 320,
+    maxWidth: 480,
+    width: '90%',
+    elevation: 5,
+  },
+  resultsModalTitle: {
+    fontWeight: 'bold',
+    fontSize: 18,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  resultsModalName: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#222',
+    marginBottom: 8,
+  },
+  resultsModalDate: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+  },
+  resultsModalSection: {
+    fontWeight: 'bold',
+    fontSize: 15,
+    color: '#222',
+    marginTop: 12,
+    marginBottom: 4,
+    alignSelf: 'flex-start',
+  },
+  hardwareList: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    padding: 12,
+    width: '100%',
+    marginBottom: 12,
+  },
+  hardwareItem: {
+    fontWeight: 'bold',
+    color: '#222',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  closeButton: {
+    marginTop: 12,
+    backgroundColor: '#ededed',
+    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  closeButtonText: {
+    fontWeight: 'bold',
+    color: '#222',
+    fontSize: 15,
   },
 });
 
